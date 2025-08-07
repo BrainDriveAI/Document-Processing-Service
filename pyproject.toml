@@ -1,0 +1,37 @@
+[project]
+name = "braindrive-document-ai"
+version = "0.1.0"
+description = "BrainDrive Document Processing AI API - Standalone document processing service"
+authors = [
+    {name = "Beck Bekmyradov",email = "47065940+bekmuradov@users.noreply.github.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "langchain (>=0.3.26,<0.4.0)",
+    "langchain-docling (>=1.0.0,<2.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "prometheus-client (>=0.22.1,<0.23.0)",
+    "pandas (>=2.3.0,<3.0.0)",
+    "fastapi (>=0.115.13,<0.116.0)",
+    "uvicorn[standard] (>=0.34.3,<0.35.0)",
+    "python-multipart (>=0.0.20,<0.0.21)",
+    "spacy (>=3.8.7,<4.0.0)",
+    "spacy-layout (>=0.0.12,<0.0.13)",
+    "tiktoken (>=0.9.0,<0.10.0)",
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+httpx = "^0.28.1"
+
+[tool.poetry.group.prod.dependencies]
+gunicorn = "^21.2.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
