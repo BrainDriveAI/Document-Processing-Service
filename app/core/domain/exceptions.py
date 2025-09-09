@@ -48,3 +48,11 @@ class DocumentValidationError(DocumentProcessingError):
 class TokenizationError(DocumentProcessingError):
     """Raised when tokenization fails"""
     pass
+
+class AuthenticationError(Exception):
+    """Raised when authentication fails"""
+    pass
+
+class AuthorizationError(Exception):
+    """Raised when user is not authorized for an action"""
+    pass
