@@ -40,7 +40,12 @@ RUN python /tmp/verify_models.py en_core_web_sm && rm /tmp/verify_models.py
 COPY . .
 
 # Create uploads directory
-RUN mkdir -p /app/data/uploads
+RUN mkdir -p /app/data/uploads /app/data/temp /app/logs
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8080
