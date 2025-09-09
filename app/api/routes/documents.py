@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from ...config import settings
 from ...core.use_cases.process_document import ProcessDocumentUseCase
 from ...core.domain.entities.document import Document as DomainDocument
+from ...core.domain.entities.user import AuthenticatedUser
 from ...core.domain.value_objects.document_type import DocumentType
 from ...core.domain.exceptions import InvalidDocumentTypeError
 from ...api.deps import (
-    get_document_processing_use_case
+    get_document_processing_use_case,
+    authenticate_user
 )
 
 router = APIRouter()
@@ -32,8 +34,13 @@ def determine_document_type(filename: str) -> DocumentType:
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    document_use_case: ProcessDocumentUseCase = Depends(get_document_processing_use_case)
+    document_use_case: ProcessDocumentUseCase = Depends(get_document_processing_use_case),
+    current_user: Optional[AuthenticatedUser] = Depends(authenticate_user)
 ):
+    # Log authenticated user (if auth is enabled)
+    if current_user:
+        logger.info(f"Document upload by authenticated user: {current_user.id}")
+
     saved_path = None
     
     try:
