@@ -17,6 +17,7 @@ from .config import settings
 # Import adapter classes
 from .adapters.token_service.tiktoken_service import TikTokenService
 from .adapters.document_processor.simple_spacy_layout import SimpleSpacyLayoutProcessor
+from .adapters.auth_service.simple_auth_service import SimpleAuthService
 # Imports for routers
 from .api.routes.documents import router as documents_router
 
@@ -86,6 +87,11 @@ async def on_startup():
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     
     try:
+        # Auth service
+        app.state.auth_service = SimpleAuthService(
+            api_key=settings.auth_api_key.get_secret_value(),
+            jwt_secret=settings.jwt_secret.get_secret_value(),
+        )
         # Token service
         token_service = TikTokenService()
         
