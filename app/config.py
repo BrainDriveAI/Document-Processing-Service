@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, SecretStr
 from typing import Optional, List
 from enum import Enum
 
@@ -19,6 +19,12 @@ class ChunkingStrategy(str, Enum):
     ADAPTIVE = "adaptive"
 
 
+class AuthMethod(str, Enum):
+    API_KEY = "api_key"
+    JWT = "jwt"
+    DISABLED = "disabled"
+
+
 class Settings(BaseSettings):
     # App settings
     app_name: str = "BrainDrive Document AI"
@@ -26,6 +32,14 @@ class Settings(BaseSettings):
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
+
+    # Authentication settings
+    auth_method: AuthMethod = AuthMethod.API_KEY
+    auth_api_key: Optional[SecretStr] = Field(None, env="AUTH_API_KEY")
+    jwt_secret: Optional[SecretStr] = Field(None, env="JWT_SECRET")
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60
+    disable_auth: bool = Field(False, env="DISABLE_AUTH")
     
     # Logging
     log_level: LogLevel = LogLevel.INFO
