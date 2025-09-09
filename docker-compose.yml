@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  braindrive-document-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8080"
+    environment:
+      # Authentication
+      - DISABLE_AUTH=${DISABLE_AUTH:-true}
+      - AUTH_METHOD=${AUTH_METHOD:-api_key}
+      - AUTH_API_KEY=${AUTH_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-60}
+      
+      # Document processing
+      - SPACY_MODEL=${SPACY_MODEL:-en_core_web_sm}
+      - DEFAULT_CHUNKING_STRATEGY=${DEFAULT_CHUNKING_STRATEGY:-hierarchical}
+      - DEFAULT_CHUNK_SIZE=${DEFAULT_CHUNK_SIZE:-1000}
+      - DEFAULT_CHUNK_OVERLAP=${DEFAULT_CHUNK_OVERLAP:-200}
+      - MIN_CHUNK_SIZE=${MIN_CHUNK_SIZE:-100}
+      - MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE:-2000}
+
+      # Logging
+      - LOG_FORMAT=${LOG_FORMAT:-console}
+      - LOG_FILE=${LOG_FILE:-/app/logs/app.log}
+    
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - .:/app  # Mount source code for development
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    
+    # Development overrides
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    
+    networks:
+      - braindrive-network
+
+networks:
+  braindrive-network:
+    driver: bridge
