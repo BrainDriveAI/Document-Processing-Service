@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  braindrive-document-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Authentication (enabled for production)
+      - DISABLE_AUTH=${DISABLE_AUTH:-false}
+      - AUTH_METHOD=${AUTH_METHOD:-api_key}
+      - AUTH_API_KEY=${AUTH_API_KEY}  # Set in .env file or environment
+      - JWT_SECRET=${JWT_SECRET}  # Optional JWT secret
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-60}
+      
+      # Document processing
+      - SPACY_MODEL=${SPACY_MODEL:-en_core_web_sm}
+      - DEFAULT_CHUNKING_STRATEGY=${DEFAULT_CHUNKING_STRATEGY:-hierarchical}
+      - DEFAULT_CHUNK_SIZE=${DEFAULT_CHUNK_SIZE:-1000}
+      - DEFAULT_CHUNK_OVERLAP=${DEFAULT_CHUNK_OVERLAP:-200}
+      - MIN_CHUNK_SIZE=${MIN_CHUNK_SIZE:-100}
+      - MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE:-2000}
+      
+      # Performance (tuned for production)
+      - MAX_CONCURRENT_PROCESSES=${MAX_CONCURRENT_PROCESSES:-2}
+      - PROCESSING_TIMEOUT=${PROCESSING_TIMEOUT:-180}
+      
+      # Logging
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - LOG_FILE=${LOG_FILE:-/app/logs/app.log}
+      
+      # CORS (restrict in production)
+      - CORS_ORIGINS=${CORS_ORIGINS:-} # e.g. https://yourdomain.com,https://api.yourdomain.com
+    
+    volumes:
+      - uploads_data:/app/data/uploads
+      - temp_data:/app/data/temp
+      - logs_data:/app/logs
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "2"]
+    
+    networks:
+      - braindrive-network
+    
+    depends_on:
+      - redis
+    
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro  # Mount SSL certificates
+      - logs_data:/var/log/nginx
+    depends_on:
+      - braindrive-document-ai
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+    depends_on:
+      - braindrive-document-ai
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-localhost}
+      - GF_SMTP_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+
+  # Log aggregation
+  fluentd:
+    image: fluent/fluentd:v1.16-debian-1
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./fluentd/conf:/fluentd/etc
+      - logs_data:/var/log
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+    depends_on:
+      - braindrive-document-ai
+
+  # Health check and monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - braindrive-network
+    restart: unless-stopped
+
+networks:
+  braindrive-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  uploads_data:
+  temp_data:
+  logs_data:
+  uptime_kuma_data:
