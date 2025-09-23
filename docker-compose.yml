@@ -29,8 +29,8 @@ services:
       - LOG_FILE=${LOG_FILE:-/app/logs/app.log}
     
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ../../persistent/document_processing/data:/app/data
+      - ../../persistent/document_processing/logs:/app/logs
       - .:/app  # Mount source code for development
     
     healthcheck:
