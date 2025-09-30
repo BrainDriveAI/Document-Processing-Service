@@ -1,6 +1,7 @@
 import spacy
 from spacy_layout import spaCyLayout
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from ...core.ports.document_processor import DocumentProcessor
 from ...core.domain.entities.document import Document
@@ -9,35 +10,155 @@ from ...core.domain.exceptions import DocumentProcessingError, InvalidDocumentTy
 from ...core.ports.token_service import TokenService
 
 
+class SpacyModelLoader:
+    """Responsible for loading spaCy models with fallback strategy"""
+    
+    def __init__(self, logger: logging.Logger):
+        self._logger = logger
+    
+    def load(self, model_name: str, local_model_path: Optional[Path] = None) -> spacy.Language:
+        """
+        Load spaCy model with the following priority:
+        1. Local pre-installed model
+        2. System-installed model
+        3. Blank English model as fallback
+        
+        Args:
+            model_name: Name of the spaCy model
+            local_model_path: Optional path to local model directory
+            
+        Returns:
+            Loaded spaCy Language model
+            
+        Raises:
+            DocumentProcessingError: If all loading attempts fail
+        """
+        # Try loading from local path first
+        if local_model_path:
+            try:
+                nlp = self._load_from_local_path(local_model_path, model_name)
+                self._logger.info(f"Successfully loaded local spaCy model from: {local_model_path}")
+                return nlp
+            except Exception as e:
+                self._logger.warning(f"Failed to load local model from {local_model_path}: {e}")
+        
+        # Try loading system-installed model
+        try:
+            nlp = spacy.load(model_name)
+            self._logger.info(f"Successfully loaded system spaCy model: {model_name}")
+            return nlp
+        except OSError as e:
+            self._logger.warning(f"Could not load system model {model_name}: {e}")
+        
+        # Fallback to blank model
+        try:
+            nlp = spacy.blank("en")
+            self._logger.warning(
+                f"Using blank English model as fallback. "
+                f"Install {model_name} for better performance: python -m spacy download {model_name}"
+            )
+            return nlp
+        except Exception as e:
+            error_msg = f"Failed to initialize any spaCy model: {e}"
+            self._logger.error(error_msg)
+            raise DocumentProcessingError(error_msg)
+    
+    def _load_from_local_path(self, base_path: Path, model_name: str) -> spacy.Language:
+        """Load model from local directory structure"""
+        model_path = base_path / model_name
+        
+        if not model_path.exists():
+            raise FileNotFoundError(f"Local model path does not exist: {model_path}")
+        
+        return spacy.load(model_path)
+
+
 class SimpleSpacyLayoutProcessor(DocumentProcessor):
     """Simplified spaCy Layout processor focused on text extraction and token-based chunking"""
+
+    DEFAULT_LOCAL_MODEL_PATH = Path("./spacy_models/en_core_web_sm")
+    DEFAULT_MODEL_NAME = "en_core_web_sm-3.8.0"
+    DEFAULT_CHUNK_SIZE = 1000
+    DEFAULT_CHUNK_OVERLAP = 200
+    DEFAULT_MIN_CHUNK_SIZE = 100
 
     def __init__(
             self,
             token_service: TokenService,
-            spacy_model: str = "en_core_web_sm",
-            chunk_size: int = 1000,
-            chunk_overlap: int = 200,
-            min_chunk_size: int = 100
+            spacy_model: str = DEFAULT_MODEL_NAME,
+            local_model_path: Optional[str] = None,
+            chunk_size: int = DEFAULT_CHUNK_SIZE,
+            chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+            min_chunk_size: int = DEFAULT_MIN_CHUNK_SIZE,
     ):
+        """
+        Initialize the SpaCy Layout processor
+        
+        Args:
+            token_service: Service for token management
+            spacy_model: Name of the spaCy model to load
+            local_model_path: Optional path to local model directory
+            chunk_size: Maximum size of text chunks
+            chunk_overlap: Overlap between consecutive chunks
+            min_chunk_size: Minimum acceptable chunk size
+        """
         self.logger = logging.getLogger(__name__)
         self.token_service = token_service
+
+        self._validate_chunk_parameters(chunk_size, chunk_overlap, min_chunk_size)
+
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.min_chunk_size = min_chunk_size
 
-        try:
-            # Load spaCy model
-            self.nlp = spacy.load(spacy_model)
-            self.logger.info(f"Loaded spaCy model: {spacy_model}")
-        except OSError:
-            # Fallback to blank model if specific model not available
-            self.nlp = spacy.blank("en")
-            self.logger.warning(f"Could not load {spacy_model}, using blank English model")
+        # Load spacy model
+        spacy_model_loader = SpacyModelLoader(self.logger)
+        local_path = Path(local_model_path) if local_model_path else self.DEFAULT_LOCAL_MODEL_PATH
 
-        # Initialize spaCy Layout with minimal configuration
+        self.nlp = spacy_model_loader.load(spacy_model, local_path)
+
+        # try:
+        #     # Load spaCy model
+        #     self.nlp = spacy.load(spacy_model)
+        #     self.logger.info(f"Loaded spaCy model: {spacy_model}")
+        # except OSError:
+        #     # Fallback to blank model if specific model not available
+        #     self.nlp = spacy.blank("en")
+        #     self.logger.warning(f"Could not load {spacy_model}, using blank English model")
+
+        # # Initialize spaCy Layout with minimal configuration
         self.layout = spaCyLayout(self.nlp)
         self.supported_types = ["pdf", "docx", "doc"]
+        self.logger.info(
+            f"Initialized SimpleSpacyLayoutProcessor with chunk_size={chunk_size}, "
+            f"chunk_overlap={chunk_overlap}, min_chunk_size={min_chunk_size}"
+        )
+
+    def _validate_chunk_parameters(
+        self, 
+        chunk_size: int, 
+        chunk_overlap: int, 
+        min_chunk_size: int
+    ) -> None:
+        """Validate chunking parameters"""
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+        
+        if chunk_overlap < 0:
+            raise ValueError(f"chunk_overlap must be non-negative, got {chunk_overlap}")
+        
+        if chunk_overlap >= chunk_size:
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})"
+            )
+        
+        if min_chunk_size <= 0:
+            raise ValueError(f"min_chunk_size must be positive, got {min_chunk_size}")
+        
+        if min_chunk_size > chunk_size:
+            raise ValueError(
+                f"min_chunk_size ({min_chunk_size}) cannot exceed chunk_size ({chunk_size})"
+            )
 
     async def process_document(self, document: Document) -> Tuple[List[DocumentChunk], str]:
         """Process a document and return token-based chunks and complete text"""
