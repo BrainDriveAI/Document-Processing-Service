@@ -43,9 +43,7 @@ RUN --mount=type=cache,id=poetry-cache,target=/root/.cache/pypoetry \
             torchvision==0.22.1+cpu \
             --index-url https://download.pytorch.org/whl/cpu; \
         else \
-            pip install --no-cache-dir \
-            torch==2.7.1 \
-            torchvision==0.22.1; \
+            pip install --no-cache-dir torch torchvision; \
         fi \
     fi
 
