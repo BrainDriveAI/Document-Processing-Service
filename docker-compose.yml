@@ -3,8 +3,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ENABLE_CUDA: ${ENABLE_CUDA:-false}
+      cache_from:
+        - type=local,src=/tmp/docker-cache
+      cache_to:
+        - type=local,dest=/tmp/docker-cache,mode=max
+    
+    image: braindrive-document-ai:${IMAGE_TAG:-latest}
+
     ports:
-      - "8000:8080"
+      - "${PORT:-8080}:8080"
+
     environment:
       # Authentication
       - DISABLE_AUTH=${DISABLE_AUTH:-true}
@@ -15,12 +25,15 @@ services:
       - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-60}
       
       # Document processing
-      - SPACY_MODEL=${SPACY_MODEL:-en_core_web_sm}
+      - SPACY_MODEL=${SPACY_MODEL:-/app/spacy_models/en_core_web_sm/en_core_web_sm-3.8.0}
       - DEFAULT_CHUNKING_STRATEGY=${DEFAULT_CHUNKING_STRATEGY:-hierarchical}
       - DEFAULT_CHUNK_SIZE=${DEFAULT_CHUNK_SIZE:-1000}
       - DEFAULT_CHUNK_OVERLAP=${DEFAULT_CHUNK_OVERLAP:-200}
       - MIN_CHUNK_SIZE=${MIN_CHUNK_SIZE:-100}
       - MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE:-2000}
+
+      # CUDA toggle (default CPU, enable with ENABLE_CUDA=true)
+      - ENABLE_CUDA=${ENABLE_CUDA:-false}
 
       # Logging
       - LOG_FORMAT=${LOG_FORMAT:-console}
@@ -41,7 +54,7 @@ services:
     restart: unless-stopped
     
     # Development overrides
-    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    # command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
     
     networks:
       - braindrive-network
