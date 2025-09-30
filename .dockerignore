@@ -1,13 +1,17 @@
 # Git
 .git
 .gitignore
+.ditattributes
 
-# Python
+# Python caches & build artifacts
 __pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
+*.egg-info/
+dist/
+build/
 env
 pip-log.txt
 pip-delete-this-directory.txt
@@ -25,6 +29,7 @@ coverage.xml
 .hypothesis
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
@@ -42,18 +47,24 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
-# Project specific
-data/uploads/*
-!data/uploads/.gitkeep
+# Secrets / local env
+# .env
+# .env.sample
+
+# Project dirs not required in image
+data/
+logs/
 test_files/
+docs/
+ngnix/
+prometheus/
 *.ps1
-.env
-.env.sample
+*.sh
 prometheus.yml
 project_structure.py
 upload_test.py
 README.md
-LICENSE
+roadmap.md
 
 # Poetry
-poetry.lock
+# poetry.lock
