@@ -243,7 +243,7 @@ PROCESSING_TIMEOUT=180
 
 ```
 Document-Processing-Service/
-├── src/
+├── app/
 │   ├── core/                          # Domain layer (business logic)
 │   │   ├── domain/
 │   │   │   ├── entities/              # Business entities
