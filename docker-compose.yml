@@ -5,10 +5,10 @@ services:
       dockerfile: Dockerfile
       args:
         ENABLE_CUDA: ${ENABLE_CUDA:-false}
-      cache_from:
-        - type=local,src=/tmp/docker-cache
-      cache_to:
-        - type=local,dest=/tmp/docker-cache,mode=max
+      # cache_from:
+      #   - type=local,src=/tmp/docker-cache
+      # cache_to:
+      #   - type=local,dest=/tmp/docker-cache,mode=max
     
     image: braindrive-document-ai:${IMAGE_TAG:-latest}
 
