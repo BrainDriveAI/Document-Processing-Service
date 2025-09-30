@@ -37,10 +37,16 @@ RUN --mount=type=cache,id=poetry-cache,target=/root/.cache/pypoetry \
         echo "Installing CPU-only packages..."; \
         poetry install --without dev --no-interaction --no-ansi --no-root && \
         pip uninstall -y torch torchvision && \
-        pip install --no-cache-dir \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+            pip install --no-cache-dir \
             torch==2.7.1+cpu \
             torchvision==0.22.1+cpu \
             --index-url https://download.pytorch.org/whl/cpu; \
+        else \
+            pip install --no-cache-dir \
+            torch==2.7.1 \
+            torchvision==0.22.1; \
+        fi \
     fi
 
 # Clean up unnecessary files
