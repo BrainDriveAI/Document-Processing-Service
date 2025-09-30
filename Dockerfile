@@ -76,19 +76,20 @@ COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 COPY --from=builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 
 # Add non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Copy local spaCy model
-COPY --chown=appuser:appuser spacy_models /app/spacy_models
+# COPY --chown=appuser:appuser spacy_models /app/spacy_models
 
 # Copy application code
-COPY --chown=appuser:appuser app /app/app
+# COPY --chown=appuser:appuser app /app/app
 
 # Create runtime directories
-RUN mkdir -p /app/data/uploads /app/data/temp /app/logs \
-    && chown -R appuser:appuser /app
+RUN mkdir -p /app/data/uploads /app/data/temp /app/logs
+# RUN mkdir -p /app/data/uploads /app/data/temp /app/logs \
+#     && chown -R appuser:appuser /app
 
-USER appuser
+# USER appuser
 
 EXPOSE 8080
 
